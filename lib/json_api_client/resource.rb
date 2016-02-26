@@ -54,24 +54,24 @@ module JsonApiClient
       #
       # @return [String] The table name for this resource
       def table_name
-        resource_name.pluralize
+        @table_name ||= resource_name.pluralize
       end
 
       # The name of a single resource. i.e. Article -> article, Person -> person
       #
       # @return [String]
       def resource_name
-        name.demodulize.underscore
+        @resource_name ||= name.demodulize.underscore
       end
 
       # Load a resource object from attributes and consider it persisted
       #
       # @return [Resource] Persisted resource object
       def load(params)
-        new(params).tap do |resource|
-          resource.mark_as_persisted!
-          resource.clear_changes_information
-        end
+        r = new params
+        r.mark_as_persisted!
+        r.clear_changes_information
+        r
       end
 
       # Return/build a connection object
@@ -87,22 +87,28 @@ module JsonApiClient
       #
       # @return [Array] Param name symbols of parameters that will be treated as path parameters
       def prefix_params
-        _belongs_to_associations.map(&:param)
+        _belongs_to_associations.map(&:param).tap { |pp| puts "\nprefix_params: #{pp}\n\n\n" }
       end
 
       # Return the path or path pattern for this resource
       def path(params = nil)
         parts = [table_name]
-        if params
+
+        new_parts = if params
           path_params = params.delete(:path) || params
-          parts.unshift(_prefix_path % path_params.symbolize_keys)
+
+          begin
+            _prefix_path % path_params.symbolize_keys
+          rescue KeyError
+            raise ArgumentError, "Not all prefix parameters specified"
+          end
         else
-          parts.unshift(_prefix_path)
+          _prefix_path
         end
-        parts.reject!{|part| part == "" }
-        File.join(*parts)
-      rescue KeyError
-        raise ArgumentError, "Not all prefix parameters specified"
+
+        parts.unshift new_parts
+        parts.reject! &:empty?
+        parts.join("/")
       end
 
       # Create a new instance of this resource class
@@ -110,9 +116,9 @@ module JsonApiClient
       # @param attributes [Hash] The attributes to create this resource with
       # @return [Resource] The instance you tried to create. You will have to check the persisted state or errors on this object to see success/failure.
       def create(attributes = {})
-        new(attributes).tap do |resource|
-          resource.save
-        end
+        r = new attributes
+        r.save
+        r
       end
 
       # Within the given block, add these headers to all requests made by
@@ -147,7 +153,7 @@ module JsonApiClient
       #
       # @return [Hash] Default attributes
       def default_attributes
-        {type: table_name}
+        @default_attributes ||= {type: table_name}
       end
 
       # Returns the schema for this resource class
@@ -179,10 +185,7 @@ module JsonApiClient
       # @param options [Hash] endpoint options
       # @option options [Symbol] :request_method The request method (:get, :post, etc)
       def collection_endpoint(name, options = {})
-        metaclass = class << self
-          self
-        end
-        metaclass.instance_eval do
+        singleton_class.instance_eval do
           define_method(name) do |*params|
             request_params = params.first || {}
             requestor.custom(name, options, request_params)
@@ -220,18 +223,18 @@ module JsonApiClient
       # @option options [Symbol] :type The property type
       # @option options [Symbol] :default The default value for the property
       def properties(*names)
-        options = names.last.is_a?(Hash) ? names.pop : {}
+        options = names.last.instance_of?(Hash) ? names.pop : {}
         names.each do |name|
           property name, options
         end
       end
 
       def _belongs_to_associations
-        associations.select{|association| association.is_a?(Associations::BelongsTo::Association) }
+        @_belongs_to_associations ||= associations.select { |a| a.instance_of? Associations::BelongsTo::Association }
       end
 
       def _prefix_path
-        _belongs_to_associations.map(&:to_prefix_path).join("/")
+        (@prefix_path ||= _belongs_to_associations.map(&:to_prefix_path).join("/")).tap { |pp| puts "\n\n\n_prefix_path: #{pp}\n" }
       end
 
       def _new_scope
@@ -258,15 +261,19 @@ module JsonApiClient
     #
     # @param params [Hash] Attributes, links, and relationships
     def initialize(params = {})
-      self.links = self.class.linker.new(params.delete("links") || {})
-      self.relationships = self.class.relationship_linker.new(params.delete("relationships") || {})
-      self.class.associations.each do |association|
+      klass = self.class
+
+      self.links         = klass.linker.new(params.delete("links") || {})
+      self.relationships = klass.relationship_linker.new(params.delete("relationships") || {})
+
+      klass.associations.each do |association|
         if params.has_key?(association.attr_name.to_s)
           set_attribute(association.attr_name, association.parse(params[association.attr_name.to_s]))
         end
       end
-      self.attributes = params.merge(self.class.default_attributes)
-      self.class.schema.each_property do |property|
+
+      self.attributes = params.merge(klass.default_attributes)
+      klass.schema.each_property do |property|
         attributes[property.name] = property.default unless attributes.has_key?(property.name) || property.default.nil?
       end
     end
