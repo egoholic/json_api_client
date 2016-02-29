@@ -234,7 +234,7 @@ module JsonApiClient
       end
 
       def _prefix_path
-        (@prefix_path ||= _belongs_to_associations.map(&:to_prefix_path).join("/")).tap { |pp| puts "\n\n\n_prefix_path: #{pp}\n" }
+        @prefix_path ||= _belongs_to_associations.map(&:to_prefix_path).join("/")
       end
 
       def _new_scope
