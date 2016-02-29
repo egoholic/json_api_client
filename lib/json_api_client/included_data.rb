@@ -22,6 +22,7 @@ module JsonApiClient
       end
 
       puts "\n\n\nDATA: #{@data.keys}\n\n"
+      puts "ASSETS: #{@data[:assets]}"
     end
 
     def data_for(method_name, definition)
