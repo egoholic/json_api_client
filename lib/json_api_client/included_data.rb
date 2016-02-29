@@ -13,6 +13,8 @@ module JsonApiClient
 
         klass = Utils.compute_type(record_class, type.singularize.classify)
         puts "\nTYPE: #{type}"
+        puts "TTYPE: #{type.class}"
+
         h[type] = records.map do |datum|
           params = klass.parser.parameters_from_resource(datum)
           puts "\nPARAMS: #{params.inspect}"
@@ -27,7 +29,7 @@ module JsonApiClient
       end
 
       puts "\n\n\nDATA: #{@data.keys}\n\n"
-      puts "ASSETS: #{@data[:assets]}"
+      puts "ASSETS: #{@data["assets"]}"
     end
 
     def data_for(method_name, definition)
@@ -54,6 +56,7 @@ module JsonApiClient
     # should return a resource record of some type for this linked document
     def record_for(link_def)
       puts "\n\n\n\nLINKDEF: #{data[link_def["type"]]}\n\n"
+      puts "LINKDEFTYPE: #{link_def['type'].class}"
       data[link_def["type"]][link_def["id"]]
     end
   end
