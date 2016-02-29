@@ -17,6 +17,8 @@ module JsonApiClient
         end.index_by(&:id)
         h
       end
+
+      puts "\n\n\nDATA: #{@data.inspect}\n\n"
     end
 
     def data_for(method_name, definition)
