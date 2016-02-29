@@ -14,8 +14,11 @@ module JsonApiClient
         klass = Utils.compute_type(record_class, type.singularize.classify)
         h[type] = records.map do |datum|
           params = klass.parser.parameters_from_resource(datum)
+          puts "\nPARAMS: #{params.inspect}"
           resource = klass.load(params)
+          puts "\nRESOURCE: #{resource.inspect}"
           resource.last_result_set = result_set
+          puts "\nRESULTSET: #{result_set}"
           resource
         end.index_by(&:id)
         h
