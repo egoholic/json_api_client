@@ -40,7 +40,7 @@ module JsonApiClient
 
     # should return a resource record of some type for this linked document
     def record_for(link_def)
-      puts "\n\n\n\nLINKDEF: #{link_def}\n\n"
+      puts "\n\n\n\nLINKDEF: #{data[link_def["type"]]}\n\n"
       data[link_def["type"]][link_def["id"]]
     end
   end
